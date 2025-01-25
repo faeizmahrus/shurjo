@@ -1,22 +1,30 @@
-FROM ghcr.io/ublue-os/silverblue-main:latest
+FROM quay.io/fedora/fedora-kinoite:41
 
-## Other possible base images include:
-# FROM ghcr.io/ublue-os/bazzite:stable
-# FROM ghcr.io/ublue-os/bluefin-nvidia:stable
-# 
-# ... and so on, here are more base images
-# Universal Blue Images: https://github.com/orgs/ublue-os/packages
-# Fedora base image: quay.io/fedora/fedora-bootc:41
-# CentOS base images: quay.io/centos-bootc/centos-bootc:stream10
+## Copy stuff
+COPY scripts/ /build-chondro/scripts/
+COPY files/ /build-chondro/files/
 
-### MODIFICATIONS
-## make modifications desired in your image and install packages by modifying the build.sh script
-## the following RUN directive does all the things required to run "build.sh" as recommended.
+## Configure base
+RUN chmod +x /build-chondro/scripts/*/* && \
+    ./build-chondro/scripts/system/setup-dnf-config.sh && \
+    ./build-chondro/scripts/apps/remove-browser-firefox.sh && \
+    ./build-chondro/scripts/system/setup-base-config.sh && \
+    ./build-chondro/scripts/system/setup-virtualization.sh
 
-COPY build.sh /tmp/build.sh
+## Install fonts and obk
+RUN ./build-chondro/scripts/system/setup-multilang.sh && \
+    dnf install -y "/build-chondro/files/fcitx-openbangla_3.0.0-F41.rpm"
 
-RUN mkdir -p /var/lib/alternatives && \
-    /tmp/build.sh && \
-    ostree container commit && \
-    bootc container lint
-    
+## Install extra stuff
+RUN ./build-chondro/scripts/apps/install-syncthing.sh && \
+    ./build-chondro/scripts/apps/install-browser-chromium.sh
+
+## Enable comeposefs
+#RUN ./build-chondro/scripts/system/setup-composefs.sh
+
+## Cleanup
+RUN rm -rf /build-chondro
+
+## Commit to Registry
+RUN ostree container commit
+#RUN tree /usr/lib/modules && bootc container lint
